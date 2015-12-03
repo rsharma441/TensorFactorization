@@ -100,6 +100,10 @@ def grad_pi(tensor_slices, pattern_list, alpha_list, pindex):
 
 	return(sumlist)
 
+def grad_alpha():
+	slist=[]
+	return(slist)
+
 
 test = grad_pi(sparse_slices,pattern_list,alpha_list,0)
 test1 = pattern_list[0] - gamma*test
