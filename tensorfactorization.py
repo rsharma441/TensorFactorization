@@ -517,17 +517,17 @@ def super_optimization(tensor_slices):
 
 
 #TESTING#
+if __name__ == "__main__":
+    #Data Creation
+    l, sparse_slices = create_data()
 
-#Data Creation
-l, sparse_slices = create_data()
+    #Initialization
+    patternlist, alphalist = initialize()
 
-#Initialization
-patternlist, alphalist = initialize()
+    #Optimization
+    opti = optimization(sparse_slices,patternlist,alphalist,lam=1000)
+    print 'RMSE for this non-tuned run is ', rmse(l,opti[0],opti[1],height=N)
+    print 'Final objective function value is ', opti[3][len(opti[3])-1]
 
-#Optimization
-opti = optimization(sparse_slices,patternlist,alphalist,lam=1000)
-print 'RMSE for this non-tuned run is ', rmse(l,opti[0],opti[1],height=N)
-print 'Final objective function value is ', opti[3][len(opti[3])-1]
-
-#Full Optimization with Parameter Tuning
-super = super_optimization(sparse_slices)
+    #Full Optimization with Parameter Tuning
+    super_opt = super_optimization(sparse_slices)
