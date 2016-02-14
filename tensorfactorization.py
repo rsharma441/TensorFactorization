@@ -4,6 +4,7 @@ from numpy import linalg
 import random
 import math
 import time
+import argparse
 
 ###Initialized Numbers###
 N=50
@@ -12,7 +13,7 @@ I = 15 #number of pattern matrices
 eta = 50
 ###Helper Functions###
 
-##delete array 
+##delete array
 def deleteElements(arr):
     nrows = arr.shape[0]
     ncols = arr.shape[1]
@@ -85,18 +86,22 @@ def get_tensoralphas(alpha_list,index):
 
 
 ###Data Creation###
-def create_data(type):
+def create_data():
+    parser = argparse.ArgumentParser(description='Distribution of generated data.')
+    parser.add_argument('distribution',  help='type of distribution')
+    args = parser.parse_args()
+    typ = args.distribution
     #generate symmetric and sparse matrices
     l = []
     creation_patterns = []
 
     #create patterns to define tensor slices
-    if type == 'normal':
+    if typ == 'normal':
         for i in range(I):
             p = np.random.normal(70,15,size = (spec,spec))
             p_symm = (p+p.T)/2
             creation_patterns.append(p_symm)
-    if type == 'uniform':
+    if typ == 'uniform':
         for i in range(I):
             p = np.random.uniform(1,100,size = (spec,spec))
             p_symm = (p+p.T)/2
@@ -514,7 +519,7 @@ def super_optimization(tensor_slices):
 #TESTING#
 
 #Data Creation
-l, sparse_slices = create_data('uniform')
+l, sparse_slices = create_data()
 
 #Initialization
 patternlist, alphalist = initialize()
