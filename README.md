@@ -7,7 +7,7 @@ OBJECTIVE: For a group of objects, we are looking at and predicting how well an 
 
 FILES: tensorfactorization.py
 
-RUNTIME INSTRUCTIONS: Within the file at the bottom you will see  that we create data using the create_data(text). Text can either be 'uniform' where it will generate data through a uniform distribution within our projected range, or it can be 'normal' where it will normally generate the data. 
+RUNTIME INSTRUCTIONS: File runs in Python 2.7 and requires pandas, numpy, random, math, time, and argparse packages. When running file from command line, additional argument required(related to data generation): 'normal' for data to be created from Normal distribution or 'uniform' for data to be created from Uniform distribution.
 
 The relevant results are printed. 
 
