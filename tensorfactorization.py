@@ -22,7 +22,10 @@ def deleteElements(arr):
     #amount of sparsity
     nremovals = round(.75*arr.size)
 
+    #initialize set to contain unique values in array to remove
     ret = set()
+
+    #make sure elements of array are symmetrically chosen
     while len(ret) < nremovals:
         cord1 = random.randint(0,nrows-1)
         cord2 = random.randint(0,ncols-1)
@@ -30,12 +33,14 @@ def deleteElements(arr):
             ret.add((cord1, cord2))
             ret.add((cord2,cord1))
 
+    #remove chosen elements in array by setting to zero(missing value indicator)
     for i in ret:
         arr[i[0]][i[1]] = 0
 
     return(arr)
 
 
+#same as other deletion function without symmmetry constraint for elements
 def nonsymm_deleteElements(arr):
     nrows = arr.shape[0]
     ncols = arr.shape[1]
@@ -64,6 +69,7 @@ def sgn(n):
         return 0
 
 #projection function
+#keeps values in array to predefined interval
 def proj(arr):
     arr[arr > 100] = 100
     arr[arr < 1] = 1
@@ -73,7 +79,8 @@ def proj(arr):
 
 
 
-#get relevant alphas for tensor
+#get relevant alphas(scalars) for tensor
+#for a slice of tensor, picks out correct scaling values for pattern matrices
 def get_tensoralphas(alpha_list,index):
     tensor_alphas = []
     for i in range(len(alpha_list)):
@@ -87,25 +94,29 @@ def get_tensoralphas(alpha_list,index):
 
 ###Data Creation###
 def create_data():
+
+    #parse type of distribution provided in command line
     parser = argparse.ArgumentParser(description='Distribution of generated data.')
     parser.add_argument('distribution',  help='type of distribution')
     args = parser.parse_args()
     typ = args.distribution
-    #generate symmetric and sparse matrices
-    l = []
-    creation_patterns = []
+
+    #initialize lists to hold arrays
+    l = [] #final data
+    creation_patterns = [] #pattern matrices for data generating process
 
     #create patterns to define tensor slices
     if typ == 'normal':
         for i in range(I):
             p = np.random.normal(70,15,size = (spec,spec))
-            p_symm = (p+p.T)/2
+            p_symm = (p+p.T)/2 #keep matrices symmetric
             creation_patterns.append(p_symm)
     if typ == 'uniform':
         for i in range(I):
             p = np.random.uniform(1,100,size = (spec,spec))
-            p_symm = (p+p.T)/2
+            p_symm = (p+p.T)/2 #keep matrices symmetric
             creation_patterns.append(p_symm)
+
     #create sparse alphas to linearly combine with creation patterns
     creation_alphas = np.random.uniform(1,100,size = (I,N))
     creation_alphas = nonsymm_deleteElements(creation_alphas)
@@ -114,17 +125,21 @@ def create_data():
         sum_cralphas = sum(creation_alphas[i])
         for j in range(len(creation_alphas[i])):
             creation_alphas[i][j] = creation_alphas[i][j]/sum_cralphas
+            #normalize alphas to be between 0 and 1
 
 
-
+    #create tensor slices from linear combination of alpha scalars and pattern matrices
     for i in range(N):
         tensoralphas = get_tensoralphas(creation_alphas,i)
         lincombo = creation_patterns[0] * tensoralphas[0]
         for j in range(1,I):
             lincombo += creation_patterns[j] * tensoralphas[j]
+        #keep slices in correct range
         lincombo = proj(lincombo)
         l.append(lincombo)
     #print l
+
+    #create data without underlying data generating process
     #for i in range(N):
     #    b=np.random.normal(70,15, size=(spec,spec))
     #    #print b
@@ -135,6 +150,8 @@ def create_data():
 
 
     sparse_slices = np.copy(l)
+
+    #make data sparse
     for i in range(len(sparse_slices)):
         sparse_slices[i] = deleteElements(sparse_slices[i])
 
@@ -148,25 +165,27 @@ def create_data():
 #Initialize Variables for optimization
 def initialize():
     patternlist = [] #list of coordinates
+
+    #random pattern matrices
     for i in range(I):
         a = np.random.uniform(1,100, size = (spec,spec))
         a_symm = (a+a.T)/2
         patternlist.append(a_symm)
 
-    #linear weights
+    #linear alpha weights
     alpha = np.random.uniform(0,1,size = (I,N)) #do we need to change range of possible values?
 
 
-    #list of coordinates to update
+    #list of alpha coordinates to update
     alphalist = alpha.tolist()
 
     return(patternlist,alphalist)
 
 
 
+###Gradients###
 
-#gradients
-
+#first gradient for pattern matrices
 def grad_pi(tensor_slices,pattern_list,alpha_list,pindex):
     slist = []
     for n in range(len(tensor_slices)):
@@ -187,6 +206,7 @@ def grad_pi(tensor_slices,pattern_list,alpha_list,pindex):
 
 #print grad_pi(sparse_slices,patternlist,alphalist,0)
 
+#second gradient for pattern matrices
 def grad2_pi(tensor_slices,pattern_list,alpha_list,pindex):
     slist = []
     for n in range(len(tensor_slices)):
@@ -199,6 +219,7 @@ def grad2_pi(tensor_slices,pattern_list,alpha_list,pindex):
 
 #print grad2_pi(sparse_slices,patternlist,alphalist,0)
 
+#first gradient for alpha scalar
 def grad_alpha_in(tensor_slices, pattern_list, alpha_list, tensor_index, alphaindex):
 
 
@@ -228,6 +249,7 @@ def grad_alpha_in(tensor_slices, pattern_list, alpha_list, tensor_index, alphain
 
     return(s)
 
+#second gradient for alpha scalar
 def grad2_alpha_in(tensor_slices,pattern_list,alpha_list, tensor_index,alphaindex):
 
     alpha = alpha_list[alphaindex][tensor_index]
@@ -243,6 +265,7 @@ def grad2_alpha_in(tensor_slices,pattern_list,alpha_list, tensor_index,alphainde
 
 #print grad2_alpha_in(sparse_slices,patternlist,alphalist,0,0)
 
+#function that returns objective function value
 def objective(tensor_slices,pattern_list,alpha_list,lam):
     slist = []
     for n in range(len(tensor_slices)):
@@ -268,6 +291,7 @@ def objective(tensor_slices,pattern_list,alpha_list,lam):
 
 #print objective(sparse_slices,pattern_list,alpha_list)
 
+#RMSE function as metric for optimization
 def rmse(tensor_slices,pattern_list,alpha_list, height):
 
     slist = []
@@ -288,6 +312,7 @@ def rmse(tensor_slices,pattern_list,alpha_list, height):
 
     return(sum(slist)/height)
 
+#RMSE function for test data
 def rmse_test(tensor_slices,pattern_list,alpha_list,height):
     slist = []
     for n in range(len(tensor_slices)):
@@ -310,11 +335,12 @@ def rmse_test(tensor_slices,pattern_list,alpha_list,height):
 
     return(sum(slist)/height)
 
+#split tensor slices into training and testing data
 def split(tensor_slices):
 
     elements = np.count_nonzero(tensor_slices)
 
-    train_count = math.ceil(elements*.6)
+    train_count = math.ceil(elements*.6) #proportion of split in data
     #print train_count
     nrows = tensor_slices.shape[0]
     ncols = tensor_slices.shape[1]
@@ -322,7 +348,10 @@ def split(tensor_slices):
     train = np.zeros(shape=tensor_slices.shape)
     test = tensor_slices.copy()
 
+
     while len(ret) < train_count:
+
+        #add tuple of array indeces and value from original array
         cord1 = random.randint(0,nrows-1)
         cord2 = random.randint(0,ncols-1)
         if test[cord1][cord2] != 0:
@@ -335,14 +364,19 @@ def split(tensor_slices):
                 ret.add((cord1,cord2,test[cord1][cord2]))
 
         #print test[cord2][cord1]
+
+    #for set of tuples defining training set
     for i in ret:
+
+        #set element of testing array, set to 0(indicating missing value)
         test[i[0]][i[1]] = 0
+        #set same index in training array to value of original array element
         train[i[0]][i[1]] = i[2]
 
     return(train,test)
 
 
-
+#optimization function using coordinate gradient descent
 def optimization(tensor_slices, pattern_list, alpha_list,lam):
 
     #print 'Starting alphas are ', alpha_list
@@ -355,6 +389,7 @@ def optimization(tensor_slices, pattern_list, alpha_list,lam):
 
         for i in range(len(pattern_list)):
 
+            #set step length for gradient descent
             gamma = 1/(grad2_pi(tensor_slices,pattern_list,alpha_list,i))
             #print gamma
 
@@ -362,26 +397,32 @@ def optimization(tensor_slices, pattern_list, alpha_list,lam):
             #print 'updated alphas are ', alpha_list
             #print 'pattern gradient is ', grad
 
+            #descend along gradient while projecting into interval
             new_Pi = proj(pattern_list[i] - gamma*grad)
-            pattern_list[i] = new_Pi
+            pattern_list[i] = new_Pi #update new pattern matrix
 
 
         for i in range(len(alpha_list)):
             for j in range(len(alpha_list[i])):
 
+                #set step length for gradient descent
                 gamma = 1/grad2_alpha_in(tensor_slices,pattern_list,alpha_list,tensor_index=j,alphaindex=i)
                 #grad = grad_alpha_in(tensor_slices,pattern_list,alpha_list,tensor_index = j,alphaindex = i)
 
+                #gradient defined by alpha column to indicate tensor slice
                 grad = grad_alpha_in(tensor_slices,pattern_list,alpha_list,tensor_index = j, alphaindex = i)
                 #print 'gradient alpha is ', grad
 
+                #formula for new alpha scalar
                 new_alpha_in = sgn(alpha_list[i][j] - gamma*grad) * max(0,abs(alpha_list[i][j] - gamma*grad)-gamma*lam)
-                alpha_list[i][j] = new_alpha_in
+                alpha_list[i][j] = new_alpha_in #update new alpha scalar
 
-
+        #check objective function value
         objecti = objective(tensor_slices,pattern_list,alpha_list,lam)
         #print 'At ' + str(m) + ' the objective function is ', objecti
         objective_list.append(objecti)
+
+        #if threshold is passed break optimization
         if len(objective_list) > 2:
             if objective_list[m-1] - objective_list[m] < eta:
                 break
@@ -397,6 +438,7 @@ def optimization(tensor_slices, pattern_list, alpha_list,lam):
     #print 'Final first pattern is ',pattern_list[0]
     #print 'Final rmse is ', rmse(l,pattern_list,alpha_list,height = N)
 
+    #predict tensor slices with identified alphas and pattern matrices
     final_list = []
     for n in range(len(tensor_slices)):
         tensor_alphas = get_tensoralphas(alpha_list,n)
@@ -413,10 +455,16 @@ def optimization(tensor_slices, pattern_list, alpha_list,lam):
 #print optimization(sparse_slices,patternlist,alphalist,10000)
 #print 'Originals', l
 
+#optimization with parameter tuning
 def super_optimization(tensor_slices):
 
+    #initialize dictionary of lambda sparsity penalty candidates
     prospective_lambdas = {}
+
+    #range of lambdas to search over
     lambdas = range(2500)
+
+    #split data into training and testing tensor slices
     trainList = []
     testList = []
     for i in tensor_slices:
@@ -424,12 +472,16 @@ def super_optimization(tensor_slices):
         trainList.append(train)
         testList.append(test)
 
+    #initialize dictionary of RMSEs associated with optimization with a lambda
     rmseList = {}
 
-
+    #initialize search threshold
     epsilon = .1
     k = 0
+
     while True:
+
+        #start search in the middle
         if k == 0:
             current_index = len(lambdas)//2
             upIndex = current_index
@@ -450,21 +502,26 @@ def super_optimization(tensor_slices):
         #print 'up lambda guess is ', upLam
         #print 'down lambda guess is ', downLam
 
+        ###Parallelize???###
+        #optimize with up lambda candidate
         pattern_list,alpha_list = initialize()
 
         up = optimization(trainList,pattern_list,alpha_list,upLam)
         up_patterns = up[0]
         up_alphas = up[1]
 
+        #optimize with down lambda candidate
         pattern_list,alpha_list = initialize()
 
         down = optimization(trainList,pattern_list,alpha_list,downLam)
         down_patterns = down[0]
         down_alphas = down[1]
 
+        #check RMSE for prediction relative to test data
         upRMSE = rmse_test(testList,up_patterns,up_alphas,height=N)
         downRMSE = rmse_test(testList,down_patterns,down_alphas,height=N)
 
+        #choose lambda with smallest RMSE and add it to potential final lambdas
         currentRMSE = min(upRMSE,downRMSE)
         if currentRMSE == upRMSE:
             prospective_lambdas[k] = upLam
@@ -477,10 +534,13 @@ def super_optimization(tensor_slices):
         if len(rmseList) < 2:
             rmseList[k] = currentRMSE
 
+        #check if RMSE from optimization with current lambda is significantnly different from previous best lambdas
         if len(rmseList) >= 2:
             mini = min(rmseList.items(), key = lambda x: x[1])
             rmseList[k] = currentRMSE
             #print 'mini = ', mini
+
+            #if threshold is passed choose lambda with smallest RMSE
             if abs(rmseList[k] - mini[1]) < epsilon:
                 if mini[1] < rmseList[k]:
                     realLambda = prospective_lambdas[mini[0]]
@@ -488,11 +548,14 @@ def super_optimization(tensor_slices):
                     realLambda = prospective_lambdas[k]
                 break
 
-
+        #change next lambda to search around based on previous RMSE from up lambda and down lambda
+        #if best lambda is up lambda then search in higher range space around up lambda
         if currentRMSE == upRMSE:
             downIndex = upIndex - (upIndex-current_index)//2
             current_index = upIndex
             upIndex = current_index + (current_index - downIndex)
+
+        #if best lambda is down lambda then search in lower range space around down lambda
         else:
             upIndex = downIndex + (current_index-downIndex)//2
             current_index = downIndex
